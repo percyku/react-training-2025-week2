@@ -2,18 +2,20 @@ import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { Modal } from "bootstrap";
 
+import PicModal from "./components/PicModal";
 import Loading from "./components/Loading";
 
 const API_BASE = import.meta.env.VITE_APP_API_BASE;
-
 // 請自行替換 API_PATH
 const API_PATH = import.meta.env.VITE_APP_API_PATH;
+
 function App() {
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
 
+  const [alertMsg, setAlerMsg] = useState("");
   const [isAuth, setIsAuth] = useState(true);
   const [products, setProducts] = useState([]);
   const [tempProduct, setTempProduct] = useState(null);
@@ -24,6 +26,20 @@ function App() {
     "https://images.unsplash.com/photo-1594322436404-5a0526db4d13?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8bm90JTIwZm91bmR8ZW58MHx8MHx8fDA%3D"
   );
   const [isLoading, setIsLoading] = useState(false);
+
+  //初始化，會先檢查是否有token 且 是有效的
+  //如無效：就會呈現登入頁面
+  useEffect(() => {
+    myModal.current = new Modal(modalRef.current);
+    checkLogin();
+  }, []);
+
+  //如有效：則會進一步觸發getData()，並渲染畫面
+  useEffect(() => {
+    if (isAuth === true) {
+      getData();
+    }
+  }, [isAuth]);
 
   async function checkLogin() {
     try {
@@ -36,6 +52,8 @@ function App() {
       const res = await axios.post(`${API_BASE}/api/user/check`);
       if (res === "") {
         setIsAuth(false);
+      } else {
+        setIsAuth(true);
       }
     } catch (error) {
       setIsAuth(false);
@@ -45,31 +63,13 @@ function App() {
     }
   }
 
-  useEffect(() => {
-    myModal.current = new Modal(modalRef.current);
-    checkLogin();
-  }, []);
-
-  useEffect(() => {
-    if (isAuth === true) {
-      getData();
-    }
-  }, [isAuth]);
-
-  function getSinglePic(url) {
-    setPhotoUrl(url);
-    if (photoUrl !== "") {
-      myModal.current.show();
-    }
-  }
-
   const getData = async () => {
     try {
       setIsLoading(true);
       const res = await axios.get(`${API_BASE}/api/${API_PATH}/admin/products`);
       setProducts(res.data.products);
-    } catch (err) {
-      console.error(err.response.data.message);
+    } catch (error) {
+      console.error(error.response.data.message);
     } finally {
       setIsLoading(false);
     }
@@ -97,24 +97,23 @@ function App() {
       setIsAuth(true);
     } catch (error) {
       setIsAuth(false);
-      alert("登入失敗: " + error.response.data.message);
+      setAlerMsg(error.response.data.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getSinglePic = (url) => {
+    setPhotoUrl(url);
+    if (photoUrl !== "") {
+      myModal.current.show();
     }
   };
 
   return (
     <>
       <Loading isLoading={isLoading} />
-      <div className="modal fade" tabIndex="-1" ref={modalRef}>
-        <div className="modal-dialog">
-          <div className="modal-content d-flex align-items-center ">
-            <div className="">
-              <img src={photoUrl} alt="" width="100%" height="100%" />
-            </div>
-          </div>
-        </div>
-      </div>
+      <PicModal modalRef={modalRef} photoUrl={photoUrl} />
       {isAuth ? (
         <div className="container">
           <div className="row mt-5">
@@ -163,7 +162,7 @@ function App() {
                   <img
                     src={tempProduct.imageUrl}
                     className="card-img-top primary-image"
-                    alt="主圖"
+                    alt={`${tempProduct.title}_旅遊主圖`}
                   />
                   <div className="card-body">
                     <h5 className="card-title">
@@ -187,13 +186,13 @@ function App() {
                     <div className="d-flex flex-wrap">
                       <div className="row">
                         {tempProduct.imagesUrl?.map((url, index) => (
-                          <div className="col-4" key={index}>
+                          <div className="col-4 mt-3" key={index}>
                             <img
                               src={url}
                               className="images img-cover"
                               width="80%"
                               height="80"
-                              alt="副圖"
+                              alt={`旅遊更多圖片_${index + 1}`}
                               onClick={() => getSinglePic(url)}
                             />
                           </div>
@@ -248,6 +247,12 @@ function App() {
               </form>
             </div>
           </div>
+          {alertMsg !== "" ? (
+            <h1 className="h-4 text-danger"> {alertMsg}</h1>
+          ) : (
+            ""
+          )}
+
           <p className="mt-5 mb-3 text-muted">&copy; 2024~∞ - 六角學院</p>
         </div>
       )}
